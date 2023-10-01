@@ -9,7 +9,7 @@ class Owner(models.Model):
 
 
 class Product(models.Model):
-    owner_id = models.ForeignKey(Owner, on_delete=models.CASCADE)
+    owner = models.ForeignKey(Owner, on_delete=models.CASCADE)
 
 
 class User(models.Model):
@@ -18,8 +18,8 @@ class User(models.Model):
 
 
 class ProductAccess(models.Model):
-    product_id = models.ForeignKey(Product, on_delete=models.CASCADE)
-    user_id = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
 class Lesson(models.Model):
@@ -29,23 +29,30 @@ class Lesson(models.Model):
 
 
 class ProductLessons(models.Model):
-    product_id = models.ManyToManyField(Product)
-    lesson_id = models.ManyToManyField(Lesson)
+    product = models.ManyToManyField(Product)
+    lesson = models.ManyToManyField(Lesson)
 
 
 class LessonViews(models.Model):
-    lesson_id = models.ManyToManyField(Lesson)
-    user_id = models.ManyToManyField(User)
-    time_watched = models.IntegerField()
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    time_watched = models.IntegerField(default=0)
     status = models.BooleanField(default=False)
-    viewing_time = models.DateTimeField()
+    viewing_time = models.DateTimeField(auto_now_add=True)
+
+
+@receiver(post_save, sender=ProductAccess)
+def add_views(sender, instance, created, **kwargs):
+    if created:
+        lessons = ProductLessons.objects.filter(product__exact=instance.product_id)
+        for lesson in lessons:
+            LessonViews.objects.create(lesson_id=lesson.id, user_id=instance.user_id)
 
 
 @receiver(post_save, sender=LessonViews)
-def update_view_status(instance):
-    lesson_data = Lesson.objects.filter(lessonviews__id=instance.id)
-    if lesson_data:
-        vidio_duration = lesson_data[0].vidio_duration
-        if instance.time_watched / vidio_duration >= .8:
-            LessonViews.objects.filter(id=instance.id).update(status=True)
-
+def update_view_status(sender, instance, created, **kwargs):
+    if not created and not instance.status:
+        vidio_duration = instance.lesson.vidio_duration
+        time_watched = instance.time_watched
+        if time_watched / vidio_duration >= .8:
+            sender.objects.filter(id=instance.id).update(status=True)
