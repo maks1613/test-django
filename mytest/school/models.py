@@ -29,13 +29,14 @@ class Lesson(models.Model):
 
 
 class ProductLessons(models.Model):
-    product = models.ManyToManyField(Product)
-    lesson = models.ManyToManyField(Lesson)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
 
 
 class LessonViews(models.Model):
-    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
     time_watched = models.IntegerField(default=0)
     status = models.BooleanField(default=False)
     viewing_time = models.DateTimeField(auto_now_add=True)
@@ -46,7 +47,8 @@ def add_views(sender, instance, created, **kwargs):
     if created:
         lessons = ProductLessons.objects.filter(product__exact=instance.product_id)
         for lesson in lessons:
-            LessonViews.objects.create(lesson_id=lesson.id, user_id=instance.user_id)
+            LessonViews.objects.create(user_id=instance.user_id, product_id=instance.product_id,
+                                       lesson_id=lesson.lesson_id)
 
 
 @receiver(post_save, sender=LessonViews)
